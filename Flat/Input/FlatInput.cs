@@ -1,22 +1,26 @@
 ﻿using System;
+using Flat.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using Flat;
-using Flat.Graphics;
+
 
 namespace Flat.Input
 {
     using Ray = Microsoft.Xna.Framework.Ray;
     
-    public sealed class FlatMouse
+    [Obsolete("Use \"FlatKeyboard\" and \"FlatMouse\" instead.", false)]
+    public sealed class FlatInput
     {
-        private static Lazy<FlatMouse> LazyInstance = new Lazy<FlatMouse>(() => new FlatMouse());
+        private static Lazy<FlatInput> LazyInstance = new Lazy<FlatInput>(() => new FlatInput());
 
-        public static FlatMouse Instance
+        public static FlatInput Instance
         {
             get { return LazyInstance.Value; }
         }
+
+        private KeyboardState currKeyboardState;
+        private KeyboardState prevKeyboardState;
 
         private MouseState currMouseState;
         private MouseState prevMouseState;
@@ -29,16 +33,32 @@ namespace Flat.Input
             }
         }
 
-        private FlatMouse()
+        private FlatInput()
         {
+            this.currKeyboardState = Keyboard.GetState();
+            this.prevKeyboardState = this.currKeyboardState;
+
             this.currMouseState = Mouse.GetState();
             this.prevMouseState = this.currMouseState;
         }
 
         public void Update()
         {
+            this.prevKeyboardState = this.currKeyboardState;
+            this.currKeyboardState = Keyboard.GetState();
+
             this.prevMouseState = this.currMouseState;
             this.currMouseState = Mouse.GetState();
+        }
+
+        public bool IsKeyDown(Keys key)
+        {
+            return this.currKeyboardState.IsKeyDown(key);
+        }
+
+        public bool IsKeyClicked(Keys key)
+        {
+            return this.currKeyboardState.IsKeyDown(key) && !this.prevKeyboardState.IsKeyDown(key);
         }
 
         public bool IsLeftMouseButtonDown()
@@ -51,39 +71,14 @@ namespace Flat.Input
             return this.currMouseState.RightButton == ButtonState.Pressed;
         }
 
-        public bool IsMiddleMouseButtonDown()
-        {
-            return this.currMouseState.MiddleButton == ButtonState.Pressed;
-        }
-
-        public bool IsLeftMouseButtonPressed()
+        public bool IsLeftMouseButtonClicked()
         {
             return this.currMouseState.LeftButton == ButtonState.Pressed && this.prevMouseState.LeftButton == ButtonState.Released;
         }
 
-        public bool IsRightMouseButtonPressed()
+        public bool IsRightMouseButtonClicked()
         {
             return this.currMouseState.RightButton == ButtonState.Pressed && this.prevMouseState.RightButton == ButtonState.Released;
-        }
-
-        public bool IsMiddleMouseButtonPressed()
-        {
-            return this.currMouseState.MiddleButton == ButtonState.Pressed && this.prevMouseState.MiddleButton == ButtonState.Released;
-        }
-
-        public bool IsLeftMouseButtonReleased()
-        {
-            return this.currMouseState.LeftButton == ButtonState.Released && this.prevMouseState.LeftButton == ButtonState.Pressed;
-        }
-
-        public bool IsRightMouseButtonReleased()
-        {
-            return this.currMouseState.RightButton == ButtonState.Released && this.prevMouseState.RightButton == ButtonState.Pressed;
-        }
-
-        public bool IsMiddleMouseButtonReleased()
-        {
-            return this.currMouseState.MiddleButton == ButtonState.Released && this.prevMouseState.MiddleButton == ButtonState.Pressed;
         }
 
         public Vector2 GetMouseScreenPosition(Game game, Screen screen)
@@ -109,7 +104,7 @@ namespace Flat.Input
             return new Vector2(x, y);
         }
 
-        public Vector2 GetMouseWorldPosition(Game game, Screen screen, Camera camera)
+        public Vector2 GetMouseWorldPositionInPixels(Game game, Screen screen, Camera camera)
         {
             // Create a viewport based on the game screen.
             Viewport screenViewport = new Viewport(0, 0, screen.Width, screen.Height);
@@ -118,7 +113,7 @@ namespace Flat.Input
             Vector2 mouseScreenPosition = this.GetMouseScreenPosition(game, screen);
 
             // Create a ray that starts at the mouse screen position and points "into" the screen towards the game world plane.
-            Ray mouseRay = this.CreateMouseRay(mouseScreenPosition, screenViewport, camera);
+            Ray mouseRay = this.GetMouseRay(mouseScreenPosition, screenViewport, camera);
 
             // Plane where the flat 2D game world takes place.
             Plane worldPlane = new Plane(new Vector3(0, 0, 1f), 0f);
@@ -132,7 +127,12 @@ namespace Flat.Input
             return result;
         }
 
-        private Ray CreateMouseRay(Vector2 mouseScreenPosition, Viewport viewport, Camera camera)
+        //public Vector2 GetMouseWorldPositionInMeters(Game game, Screen screen, Camera camera)
+        //{
+        //    return Util.ConvertPixelsToMeters(this.GetMouseWorldPositionInPixels(game, screen, camera));
+        //}
+
+        private Ray GetMouseRay(Vector2 mouseScreenPosition, Viewport viewport, Camera camera)
         {
             // Near and far points that will indicate the line segment used to define the ray.
             Vector3 nearPoint = new Vector3(mouseScreenPosition, 0);
